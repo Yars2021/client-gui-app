@@ -5,8 +5,10 @@ import org.slf4j.LoggerFactory;
 import ru.itmo.p3114.s312198.commands.CommandRecord;
 import ru.itmo.p3114.s312198.commands.actions.AbstractCommand;
 import ru.itmo.p3114.s312198.commands.actions.simple.Info;
+import ru.itmo.p3114.s312198.commands.actions.simple.RemoveById;
 import ru.itmo.p3114.s312198.commands.types.CommandTypes;
 import ru.itmo.p3114.s312198.exceptions.TransmissionException;
+import ru.itmo.p3114.s312198.structures.StudyGroup;
 import ru.itmo.p3114.s312198.transmission.CSChannel;
 import ru.itmo.p3114.s312198.transmission.PrimaryPack;
 import ru.itmo.p3114.s312198.transmission.ResponsePack;
@@ -306,17 +308,18 @@ public class GroupsForm extends UIForm {
                     String[] halves = responsePack.getOutput().get(i).split(": ");
                     logger.info("Loading into the table: " + responsePack.getOutput().get(i));
                     line.add(false);
+                    StudyGroup studyGroup = (StudyGroup) new StudyGroup().fromCSV(halves[1]);
                     line.add(Integer.parseInt(halves[0].trim().split(", ")[0].trim()));
-                    line.add(halves[1].trim().split(",")[0].trim());
+                    line.add(studyGroup.getName());
                     line.add(halves[0].trim().split(", ")[2].trim());
-                    line.add("(" + halves[1].trim().split(",")[1].trim() + "; " +
-                            halves[1].trim().split(",")[2].trim() + ")");
-                    line.add(halves[1].trim().split(",")[3].trim());
-                    line.add(Integer.parseInt(halves[1].trim().split(",")[4].trim()));
-                    line.add(Integer.parseInt(halves[1].trim().split(",")[5].trim()));
-                    line.add(Integer.parseInt(halves[1].trim().split(",")[6].trim()));
-                    line.add(halves[1].trim().split(",")[7].trim());
-                    line.add(halves[1].trim().split(",")[8].trim().isEmpty() ? "-" : halves[1].trim().split(",")[8].trim());
+                    line.add("(" + studyGroup.getCoordinates().getX() + "; " +
+                            studyGroup.getCoordinates().getY() + ")");
+                    line.add(studyGroup.getCreationDate());
+                    line.add(studyGroup.getStudentsCount());
+                    line.add(studyGroup.getShouldBeExpelled());
+                    line.add(studyGroup.getTransferredStudents());
+                    line.add(studyGroup.getFormOfEducation());
+                    line.add(studyGroup.getGroupAdmin() == null ? "-" : studyGroup.getGroupAdmin().getName());
 
                     data.add(line);
                 }
@@ -331,6 +334,7 @@ public class GroupsForm extends UIForm {
         GroupForm groupForm = new GroupForm(resourceBundle.getLocale(), channel);
         groupForm.loadById(id);
         groupForm.show();
+        groupForm.hide();
     }
 
     @Override
@@ -340,12 +344,12 @@ public class GroupsForm extends UIForm {
                 logger.info("Adding a new group...");
                 // Show "Group" dialog with empty fields
                 GroupForm groupForm = new GroupForm(resourceBundle.getLocale(), channel);
-                groupForm.loadById(-1L);
                 groupForm.setActor(actor);
+                groupForm.loadById(-1L);
                 groupForm.show();
 
                 tmGroups.setDataVector(retrieveGroupsFromServer(), getLocalizedTableHeaders(resourceBundle.getLocale()));
-
+                groupForm.hide();
                 break;
             }
             case (ACTION_DELETE_GROUPS): {
@@ -363,10 +367,19 @@ public class GroupsForm extends UIForm {
                         resourceBundle.getString("form.groups.delete.confirm.title"),
                         JOptionPane.YES_NO_OPTION);
                 if (result == 0) {
-                    // 2. Confirmed - call "DeleteGroup" command on the server
-                    // todo Call Server.deleteGroup(id) for each id from the rowsToDelete collection
-
-                    // 3. Reload groups list and update GroupsTable:
+                    PrimaryPack primaryPack = new PrimaryPack(actor);
+                    for (Integer row : rowsToDelete) {
+                        RemoveById remove = new RemoveById();
+                        remove.getArguments().add(row.toString());
+                        primaryPack.addCommand(new CommandRecord(remove, CommandTypes.SIMPLE_COMMAND));
+                    }
+                    try {
+                        channel.writeObject(primaryPack);
+                        ResponsePack responsePack = (ResponsePack) channel.readObject();
+                        logger.info("Execution state: " + responsePack.allowed().toString());
+                    } catch (TransmissionException transmissionException) {
+                        logger.error(transmissionException.getMessage());
+                    }
                     tmGroups.setDataVector(retrieveGroupsFromServer(), getLocalizedTableHeaders(resourceBundle.getLocale()));
                 }
 

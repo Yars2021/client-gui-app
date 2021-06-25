@@ -52,9 +52,9 @@ public class LoginForm extends UIForm {
 
     public LoginForm(Locale locale) {
         try {
-        channel = new CSChannel(new Socket("localhost", 7035));
-        resourceBundle = getResourceBundle(locale);
-        prepareGUI(resourceBundle.getLocale());
+            channel = new CSChannel(new Socket("localhost", 7035));
+            resourceBundle = getResourceBundle(locale);
+            prepareGUI(resourceBundle.getLocale());
         } catch (IOException ioException) {
             logger.error(ioException.getMessage());
         }
@@ -226,6 +226,7 @@ public class LoginForm extends UIForm {
         if (channel != null) {
             try {
                 GUIReaderAdapter guiReaderAdapter = new GUIReaderAdapter();
+                System.out.println(user);
                 guiReaderAdapter.push(user);
                 guiReaderAdapter.push(credentials);
                 guiReaderAdapter.push(credentials);
@@ -282,7 +283,7 @@ public class LoginForm extends UIForm {
                 } else {
                     logger.info("Registering user '{}'...", tfRUser.getText());
 
-                    if (register(channel, tfUser.getText(), tfPassword.getText())) {
+                    if (register(channel, tfRUser.getText(), tfRPassword.getText())) {
                         // Success - clear form data, enable form controls, hide form and open main (Groups) window
                         hide();
                         GroupsForm groupsForm = new GroupsForm(resourceBundle.getLocale(), channel);

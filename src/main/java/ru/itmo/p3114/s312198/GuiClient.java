@@ -48,8 +48,10 @@ public class GuiClient {
         btnLogin.addActionListener(e -> {
             if ("showLoginForm".equals(e.getActionCommand())) {
                 btnLogin.setEnabled(false);
-                loginForm.setLocale(applicationLocale);
-                loginForm.show();
+                if (loginForm != null) {
+                    loginForm.setLocale(applicationLocale);
+                    loginForm.show();
+                }
             }
         });
 

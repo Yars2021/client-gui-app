@@ -1,17 +1,23 @@
 package ru.itmo.p3114.s312198.forms;
 
+import jdk.nashorn.internal.objects.NativeObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.itmo.p3114.s312198.commands.CommandRecord;
 import ru.itmo.p3114.s312198.commands.actions.complex.Add;
+import ru.itmo.p3114.s312198.commands.actions.simple.Info;
 import ru.itmo.p3114.s312198.commands.types.CommandTypes;
 import ru.itmo.p3114.s312198.exceptions.InputInterruptedException;
 import ru.itmo.p3114.s312198.exceptions.InvalidInputException;
+import ru.itmo.p3114.s312198.exceptions.TransmissionException;
 import ru.itmo.p3114.s312198.parsers.FieldParser;
-import ru.itmo.p3114.s312198.parsers.RequestParser;
-import ru.itmo.p3114.s312198.structures.Coordinates;
+import ru.itmo.p3114.s312198.structures.Country;
 import ru.itmo.p3114.s312198.structures.FormOfEducation;
+import ru.itmo.p3114.s312198.structures.Location;
+import ru.itmo.p3114.s312198.structures.Person;
 import ru.itmo.p3114.s312198.structures.StudyGroup;
+import ru.itmo.p3114.s312198.structures.builders.LocationBuilder;
+import ru.itmo.p3114.s312198.structures.builders.PersonBuilder;
 import ru.itmo.p3114.s312198.structures.builders.StudyGroupBuilder;
 import ru.itmo.p3114.s312198.transmission.CSChannel;
 import ru.itmo.p3114.s312198.transmission.PrimaryPack;
@@ -19,6 +25,7 @@ import ru.itmo.p3114.s312198.transmission.ResponsePack;
 import ru.itmo.p3114.s312198.transmission.User;
 
 import javax.swing.*;
+import javax.swing.border.TitledBorder;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.io.IOException;
@@ -63,6 +70,30 @@ public class GroupForm extends UIForm {
     private final JLabel lGroupAdmin = new JLabel();
     private final JComboBox<String> cbGroupAdmin = new JComboBox<>(); // Each Item is "<Person.name> (Person.id)>"
 
+    // Person section
+    private final JPanel pLocation = new JPanel();
+    private final JPanel pPerson = new JPanel();
+    private final JLabel lPerson = new JLabel();
+    private final JLabel lPId = new JLabel();
+    private final JTextField tfPId = new JFormattedTextField();
+    private final JLabel lPName = new JLabel();
+    private final JTextField tfPName = new JTextField();
+    private final JLabel lHeight = new JLabel();
+    private final JTextField tfHeight = new JFormattedTextField();
+    private final JLabel lHairColor = new JLabel();
+    private final JComboBox<ru.itmo.p3114.s312198.structures.Color> cbHairColor = new JComboBox<>();
+    private final JLabel lNationality = new JLabel();
+    private final JComboBox<Country> cbNationality = new JComboBox<>();
+    private final JLabel lLocation = new JLabel();
+    private final JLabel lLocationX = new JLabel();
+    private final JLabel lLocationY = new JLabel();
+    private final JLabel lLocationZ = new JLabel();
+    private final JLabel lLocationName = new JLabel();
+    private final JTextField tfLocationX = new JFormattedTextField();
+    private final JTextField tfLocationY = new JFormattedTextField();
+    private final JTextField tfLocationZ = new JFormattedTextField();
+    private final JTextField tfLocationName = new JTextField();
+
     // Buttons panel
     private final JPanel pButtons = new JPanel();
     private final JButton btnSave = new JButton();
@@ -84,7 +115,6 @@ public class GroupForm extends UIForm {
 
     public void setActor(User actor) {
         this.actor = actor;
-        tfOwner.setText(actor.getUsername());
     }
 
     @Override
@@ -95,6 +125,8 @@ public class GroupForm extends UIForm {
         tfId.setEnabled(false);
         tfCreated.setEnabled(false);
         tfCreated.setText(new SimpleDateFormat("yyyy-MM-dd").format(new Date()));
+        tfOwner.setEnabled(false);
+        tfPId.setEnabled(false);
 
 //        DateFormat format = new SimpleDateFormat("dd-MM-yyyy");
 //        DateFormatter df = new DateFormatter(format);
@@ -133,6 +165,105 @@ public class GroupForm extends UIForm {
                                 .addComponent(tfCoordinateY)
                         )
         );
+
+        // Compose Person Panel
+        GroupLayout glLocation = new GroupLayout(pLocation);
+        pLocation.setLayout(glLocation);
+        glLocation.setAutoCreateGaps(true);
+        glLocation.setAutoCreateContainerGaps(true);
+
+        glLocation.setVerticalGroup(
+                glLocation.createSequentialGroup()
+                        .addGroup(glLocation.createParallelGroup(GroupLayout.Alignment.BASELINE)
+                                .addComponent(lLocationX)
+                                .addComponent(tfLocationX)
+                        )
+                        .addGroup(glLocation.createParallelGroup(GroupLayout.Alignment.BASELINE)
+                                .addComponent(lLocationY)
+                                .addComponent(tfLocationY)
+                        )
+                        .addGroup(glLocation.createParallelGroup(GroupLayout.Alignment.BASELINE)
+                                .addComponent(lLocationZ)
+                                .addComponent(tfLocationZ)
+                        )
+                        .addGroup(glLocation.createParallelGroup(GroupLayout.Alignment.BASELINE)
+                                .addComponent(lLocationName)
+                                .addComponent(tfLocationName)
+                        )
+        );
+
+        glLocation.setHorizontalGroup(
+                glLocation.createSequentialGroup()
+                        .addGroup(glLocation.createParallelGroup(GroupLayout.Alignment.LEADING)
+                                .addComponent(lLocationX)
+                                .addComponent(lLocationY)
+                                .addComponent(lLocationZ)
+                                .addComponent(lLocationName)
+                        )
+                        .addGroup(glLocation.createParallelGroup(GroupLayout.Alignment.LEADING)
+                                .addComponent(tfLocationX)
+                                .addComponent(tfLocationY)
+                                .addComponent(tfLocationZ)
+                                .addComponent(tfLocationName)
+                        )
+        );
+
+        GroupLayout glPerson = new GroupLayout(pPerson);
+        pPerson.setLayout(glPerson);
+        glPerson.setAutoCreateGaps(true);
+        glPerson.setAutoCreateContainerGaps(true);
+
+        glPerson.setVerticalGroup(
+                glPerson.createSequentialGroup()
+                        .addGroup(glPerson.createParallelGroup(GroupLayout.Alignment.BASELINE)
+                                .addComponent(lPId)
+                                .addComponent(tfPId)
+                        )
+                        .addGroup(glPerson.createParallelGroup(GroupLayout.Alignment.BASELINE)
+                                .addComponent(lPName)
+                                .addComponent(tfPName)
+                        )
+                        .addGroup(glPerson.createParallelGroup(GroupLayout.Alignment.BASELINE)
+                                .addComponent(lHeight)
+                                .addComponent(tfHeight)
+                        )
+                        .addGroup(glPerson.createParallelGroup(GroupLayout.Alignment.BASELINE)
+                                .addComponent(lHairColor)
+                                .addComponent(cbHairColor)
+                        )
+                        .addGroup(glPerson.createParallelGroup(GroupLayout.Alignment.BASELINE)
+                                .addComponent(lNationality)
+                                .addComponent(cbNationality)
+                        )
+                        .addGroup(glPerson.createParallelGroup(GroupLayout.Alignment.BASELINE)
+                                .addComponent(lLocation)
+                                .addComponent(pLocation)
+                        )
+        );
+
+        glPerson.setHorizontalGroup(
+                glPerson.createSequentialGroup()
+                        .addGroup(glPerson.createParallelGroup(GroupLayout.Alignment.LEADING)
+                                .addComponent(lPId)
+                                .addComponent(lPName)
+                                .addComponent(lHeight)
+                                .addComponent(lHairColor)
+                                .addComponent(lNationality)
+                                .addComponent(lLocation)
+                        )
+                        .addGroup(glPerson.createParallelGroup(GroupLayout.Alignment.LEADING)
+                                .addComponent(tfPId)
+                                .addComponent(tfPName)
+                                .addComponent(tfHeight)
+                                .addComponent(cbHairColor)
+                                .addComponent(cbNationality)
+                                .addComponent(pLocation)
+                        )
+        );
+        TitledBorder tbPerson = new TitledBorder("");
+
+        pPerson.setBorder(tbPerson);
+
         // Compose buttons panel
         btnSave.setActionCommand(ACTION_SAVE);
         btnSave.addActionListener(this);
@@ -180,8 +311,8 @@ public class GroupForm extends UIForm {
                                 .addComponent(cbFormOfEducation)
                         )
                         .addGroup(glGroup.createParallelGroup(GroupLayout.Alignment.BASELINE)
-                                .addComponent(lGroupAdmin)
-                                .addComponent(cbGroupAdmin)
+                                .addComponent(lPerson)
+                                .addComponent(pPerson)
                         )
                         .addComponent(pButtons)
         );
@@ -197,7 +328,7 @@ public class GroupForm extends UIForm {
                                 .addComponent(lShouldBeExpelled)
                                 .addComponent(lTransferredStudents)
                                 .addComponent(lFormOfEducation)
-                                .addComponent(lGroupAdmin)
+                                .addComponent(lPerson)
                         )
                         .addGroup(glGroup.createParallelGroup(GroupLayout.Alignment.LEADING)
                                 .addComponent(tfId)
@@ -209,10 +340,12 @@ public class GroupForm extends UIForm {
                                 .addComponent(tfShouldBeExpelled)
                                 .addComponent(tfTransferredStudents)
                                 .addComponent(cbFormOfEducation)
-                                .addComponent(cbGroupAdmin)
+                                .addComponent(pPerson)
                                 .addComponent(pButtons)
                         )
         );
+
+
         instance.add(pGroup);
         instance.setModal(true);
         setLocale(locale);
@@ -230,6 +363,10 @@ public class GroupForm extends UIForm {
         cbGroupAdmin.removeAllItems();
         // 1. Call Server.getPersons()
         // 2. Add dropdown items by template "<Person.name> (Person.id)>"
+        cbHairColor.removeAllItems();
+        Arrays.stream(ru.itmo.p3114.s312198.structures.Color.values()).sorted().forEach(cbHairColor::addItem);
+        cbNationality.removeAllItems();
+        Arrays.stream(Country.values()).sorted().forEach(cbNationality::addItem);
     }
 
     @Override
@@ -252,6 +389,18 @@ public class GroupForm extends UIForm {
         lGroupAdmin.setText(resourceBundle.getString("form.group.admin"));
         btnSave.setText(resourceBundle.getString("form.group.buttons.save"));
         btnCancel.setText(resourceBundle.getString("form.group.buttons.cancel"));
+        // Person
+        lPerson.setText(resourceBundle.getString("form.groups.table.header.admin"));
+        lPId.setText(resourceBundle.getString("form.person.id"));
+        lPName.setText(resourceBundle.getString("form.person.name"));
+        lHeight.setText(resourceBundle.getString("form.person.height"));
+        lHairColor.setText(resourceBundle.getString("form.person.hair.color"));
+        lNationality.setText(resourceBundle.getString("form.person.nationality"));
+        lLocation.setText(resourceBundle.getString("form.person.location"));
+        lLocationX.setText(resourceBundle.getString("form.person.location.x"));
+        lLocationY.setText(resourceBundle.getString("form.person.location.y"));
+        lLocationZ.setText(resourceBundle.getString("form.person.location.z"));
+        lLocationName.setText(resourceBundle.getString("form.person.location.name"));
         refreshDropdowns(locale);
         instance.pack();
     }
@@ -263,20 +412,45 @@ public class GroupForm extends UIForm {
                 logger.info("Saving group...");
                 Add add = new Add();
                 FieldParser fieldParser = new FieldParser();
+                System.out.println(cbFormOfEducation.getToolTipText());
                 try {
+                    Location location = null;
+
+                    if (!(tfLocationX.getText().trim().isEmpty() && tfLocationY.getText().trim().isEmpty()
+                            && tfLocationZ.getText().trim().isEmpty())) {
+                        location = new LocationBuilder()
+                                .addX(fieldParser.parseLocationCoordinate(tfLocationX.getText()))
+                                .addY(fieldParser.parseLocationCoordinate(tfLocationY.getText()))
+                                .addZ(fieldParser.parseLocationCoordinate(tfLocationZ.getText()))
+                                .addName(fieldParser.parseOptionalName(tfLocationName.getText()))
+                                .toLocation();
+                    }
+
+                    Person person = null;
+
+                    if (!tfPName.getText().trim().isEmpty()) {
+                        person = new PersonBuilder()
+                                .addName(fieldParser.parseName(tfPName.getText()))
+                                .addHeight(fieldParser.parseNaturalNumber(tfHeight.getText()))
+                                .addHairColor((ru.itmo.p3114.s312198.structures.Color) cbHairColor.getSelectedItem())
+                                .addNationality((Country) cbNationality.getSelectedItem())
+                                .addLocation(location)
+                                .toPerson();
+                    }
+
                     StudyGroup studyGroup = new StudyGroupBuilder()
                             .addName(fieldParser.parseName(tfName.getText()))
                             .addCoordinates(fieldParser.parseCoordinates(tfCoordinateX.getText() + " " + tfCoordinateY.getText()))
                             .addStudentsCount(fieldParser.parseNaturalNumber(tfStudentsCount.getText()))
                             .addShouldBeExpelled(fieldParser.parseNaturalNumber(tfShouldBeExpelled.getText()))
                             .addTransferredStudents(fieldParser.parseNaturalNumber(tfTransferredStudents.getText()))
-                            .addFormOfEducation(fieldParser.parseFromOfEducation(cbFormOfEducation.getToolTipText()))
-                            .addGroupAdmin(null)
+                            .addFormOfEducation((FormOfEducation) cbFormOfEducation.getSelectedItem())
+                            .addGroupAdmin(person)
                             .toStudyGroup();
+                    System.out.println(studyGroup.toReadableString());
                     add.setComplexArgument(studyGroup);
-                } catch (InvalidInputException invalidInputException) {
-                    logger.error(invalidInputException.getMessage());
-                } catch (InputInterruptedException ignored) {
+                } catch (InvalidInputException | InputInterruptedException exception) {
+                    logger.error(exception.getMessage());
                 }
                 try {
                     PrimaryPack primaryPack = new PrimaryPack(actor);
@@ -289,6 +463,7 @@ public class GroupForm extends UIForm {
                 } catch (IOException ioException) {
                     logger.error(ioException.getMessage());
                 }
+
                 break;
             }
             case (ACTION_CANCEL): {
@@ -303,10 +478,47 @@ public class GroupForm extends UIForm {
     public void loadById(Long id) {
         if (id == -1) {
             clearFields();
+            tfOwner.setText(actor.getUsername());
         } else {
             tfId.setText(id.toString());
-            // 1. Call Server.getGroupById(id)
-            // 2. Fill controls data with returned values
+            try {
+                if (channel != null && !channel.getSocket().isClosed()) {
+                    PrimaryPack primaryPack = new PrimaryPack(actor);
+                    primaryPack.addCommand(new CommandRecord(new Info(), CommandTypes.SIMPLE_COMMAND));
+                    channel.writeObject(primaryPack);
+                    ResponsePack responsePack = (ResponsePack) channel.readObject();
+                    for (int i = 5; i < responsePack.getOutput().size() - 1; i++) {
+                        String[] halves = responsePack.getOutput().get(i).split(": ");
+                        if (halves[0].split(", ")[0].trim().equals(id.toString())) {
+                            logger.info("Loading into the form: " + responsePack.getOutput().get(i));
+                            StudyGroup studyGroup = (StudyGroup) new StudyGroup().fromCSV(halves[1]);
+                            tfOwner.setText(halves[0].split(", ")[2].trim());
+                            tfName.setText(studyGroup.getName());
+                            tfCoordinateX.setText(studyGroup.getCoordinates().getX().toString());
+                            tfCoordinateY.setText(studyGroup.getCoordinates().getY().toString());
+                            tfCreated.setText(studyGroup.getCreationDate().toString());
+                            tfStudentsCount.setText(studyGroup.getStudentsCount().toString());
+                            tfShouldBeExpelled.setText(studyGroup.getShouldBeExpelled().toString());
+                            tfTransferredStudents.setText(studyGroup.getTransferredStudents().toString());
+                            cbFormOfEducation.setSelectedItem(studyGroup.getFormOfEducation());
+                            if (studyGroup.getGroupAdmin() != null) {
+                                tfPName.setText(studyGroup.getGroupAdmin().getName().toString());
+                                tfHeight.setText(studyGroup.getGroupAdmin().getHeight().toString());
+                                cbHairColor.setSelectedItem(studyGroup.getGroupAdmin().getHairColor());
+                                cbNationality.setSelectedItem(studyGroup.getGroupAdmin().getNationality());
+                                if (studyGroup.getGroupAdmin().getLocation() != null) {
+                                    tfLocationX.setText(studyGroup.getGroupAdmin().getLocation().getX() + "");
+                                    tfLocationY.setText(studyGroup.getGroupAdmin().getLocation().getY() + "");
+                                    tfLocationZ.setText(studyGroup.getGroupAdmin().getLocation().getZ() + "");
+                                    tfLocationName.setText(studyGroup.getGroupAdmin().getLocation().getName());
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (TransmissionException transmissionException) {
+                logger.error(transmissionException.getMessage());
+            }
         }
     }
 
