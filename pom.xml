@@ -48,7 +48,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>ru.itmo.p3114.s312198.Server</mainClass>
+                            <mainClass>ru.itmo.p3114.s312198.GuiClient</mainClass>
                             <addClasspath>true</addClasspath>
                             <classpathPrefix>lib/</classpathPrefix>
                             <classpathLayoutType>simple</classpathLayoutType>

@@ -47,7 +47,7 @@ public class GuiClient {
         btnLogin.setActionCommand("showLoginForm");
         btnLogin.addActionListener(e -> {
             if ("showLoginForm".equals(e.getActionCommand())) {
-                jFrame.setVisible(false);
+                btnLogin.setEnabled(false);
                 loginForm.setLocale(applicationLocale);
                 loginForm.show();
             }

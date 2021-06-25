@@ -2,11 +2,26 @@ package ru.itmo.p3114.s312198.forms;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ru.itmo.p3114.s312198.commands.CommandRecord;
+import ru.itmo.p3114.s312198.commands.actions.complex.Add;
+import ru.itmo.p3114.s312198.commands.types.CommandTypes;
+import ru.itmo.p3114.s312198.exceptions.InputInterruptedException;
+import ru.itmo.p3114.s312198.exceptions.InvalidInputException;
+import ru.itmo.p3114.s312198.parsers.FieldParser;
+import ru.itmo.p3114.s312198.parsers.RequestParser;
+import ru.itmo.p3114.s312198.structures.Coordinates;
 import ru.itmo.p3114.s312198.structures.FormOfEducation;
+import ru.itmo.p3114.s312198.structures.StudyGroup;
+import ru.itmo.p3114.s312198.structures.builders.StudyGroupBuilder;
+import ru.itmo.p3114.s312198.transmission.CSChannel;
+import ru.itmo.p3114.s312198.transmission.PrimaryPack;
+import ru.itmo.p3114.s312198.transmission.ResponsePack;
+import ru.itmo.p3114.s312198.transmission.User;
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
+import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Date;
@@ -19,6 +34,8 @@ public class GroupForm extends UIForm {
     public static final String ACTION_SAVE = "actionSave";
     public static final String ACTION_CANCEL = "actionCancel";
 
+    private CSChannel channel;
+    private User actor;
     // Form elements
     private final JPanel pGroup = new JPanel();
     private final JLabel lId = new JLabel();
@@ -51,9 +68,23 @@ public class GroupForm extends UIForm {
     private final JButton btnSave = new JButton();
     private final JButton btnCancel = new JButton();
 
-    public GroupForm(Locale locale) {
+    public GroupForm(Locale locale, CSChannel channel) {
+        this.channel = channel;
         resourceBundle = getResourceBundle(locale);
         prepareGUI(resourceBundle.getLocale());
+    }
+
+    public CSChannel getChannel() {
+        return channel;
+    }
+
+    public User getActor() {
+        return actor;
+    }
+
+    public void setActor(User actor) {
+        this.actor = actor;
+        tfOwner.setText(actor.getUsername());
     }
 
     @Override
@@ -230,6 +261,34 @@ public class GroupForm extends UIForm {
         switch (e.getActionCommand()) {
             case (ACTION_SAVE): {
                 logger.info("Saving group...");
+                Add add = new Add();
+                FieldParser fieldParser = new FieldParser();
+                try {
+                    StudyGroup studyGroup = new StudyGroupBuilder()
+                            .addName(fieldParser.parseName(tfName.getText()))
+                            .addCoordinates(fieldParser.parseCoordinates(tfCoordinateX.getText() + " " + tfCoordinateY.getText()))
+                            .addStudentsCount(fieldParser.parseNaturalNumber(tfStudentsCount.getText()))
+                            .addShouldBeExpelled(fieldParser.parseNaturalNumber(tfShouldBeExpelled.getText()))
+                            .addTransferredStudents(fieldParser.parseNaturalNumber(tfTransferredStudents.getText()))
+                            .addFormOfEducation(fieldParser.parseFromOfEducation(cbFormOfEducation.getToolTipText()))
+                            .addGroupAdmin(null)
+                            .toStudyGroup();
+                    add.setComplexArgument(studyGroup);
+                } catch (InvalidInputException invalidInputException) {
+                    logger.error(invalidInputException.getMessage());
+                } catch (InputInterruptedException ignored) {
+                }
+                try {
+                    PrimaryPack primaryPack = new PrimaryPack(actor);
+                    primaryPack.addCommand(new CommandRecord(add, CommandTypes.COMPLEX_COMMAND));
+                    channel.writeObject(primaryPack);
+                    ResponsePack responsePack = (ResponsePack) channel.readObject();
+                    for (String line : responsePack.getOutput()) {
+                        logger.info(line);
+                    }
+                } catch (IOException ioException) {
+                    logger.error(ioException.getMessage());
+                }
                 break;
             }
             case (ACTION_CANCEL): {

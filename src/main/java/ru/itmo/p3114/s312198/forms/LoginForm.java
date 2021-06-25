@@ -2,9 +2,19 @@ package ru.itmo.p3114.s312198.forms;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ru.itmo.p3114.s312198.authentication.Login;
+import ru.itmo.p3114.s312198.authentication.Register;
+import ru.itmo.p3114.s312198.exceptions.TransmissionException;
+import ru.itmo.p3114.s312198.io.GUIReaderAdapter;
+import ru.itmo.p3114.s312198.transmission.AuthenticationRequest;
+import ru.itmo.p3114.s312198.transmission.AuthenticationResponse;
+import ru.itmo.p3114.s312198.transmission.CSChannel;
+import ru.itmo.p3114.s312198.transmission.User;
 
 import javax.swing.*;
 import java.awt.event.ActionEvent;
+import java.io.IOException;
+import java.net.Socket;
 import java.util.Locale;
 import java.util.ResourceBundle;
 
@@ -15,6 +25,9 @@ public class LoginForm extends UIForm {
     public static final String ACTION_REGISTER = "actionRegister";
     public static final String ACTION_CANCEL = "actionCancel";
     private static final String EMPTY_STRING = "";
+
+    private CSChannel channel;
+    private User actor;
 
     private ResourceBundle resourceBundle = null;
     // Form elements
@@ -38,8 +51,25 @@ public class LoginForm extends UIForm {
     private final JButton btnCancelRegistration = new JButton();
 
     public LoginForm(Locale locale) {
+        try {
+        channel = new CSChannel(new Socket("localhost", 7035));
         resourceBundle = getResourceBundle(locale);
         prepareGUI(resourceBundle.getLocale());
+        } catch (IOException ioException) {
+            logger.error(ioException.getMessage());
+        }
+    }
+
+    public void setChannel(CSChannel channel) {
+        this.channel = channel;
+    }
+
+    public CSChannel getChannel() {
+        return channel;
+    }
+
+    public User getActor() {
+        return actor;
     }
 
     @Override
@@ -172,10 +202,44 @@ public class LoginForm extends UIForm {
         instance.pack();
     }
 
-    private boolean checkLogin(String user, String credentials) {
-        // 1. Send "Login" action to the server
-        // 2. Process server response and return result
-        return true;
+    private boolean checkLogin(CSChannel channel, String user, String credentials) {
+        if (channel != null) {
+            logger.info(channel.toString());
+            try {
+                GUIReaderAdapter guiReaderAdapter = new GUIReaderAdapter();
+                guiReaderAdapter.push(user);
+                guiReaderAdapter.push(credentials);
+                AuthenticationRequest authenticationRequest = new Login().formRequest(guiReaderAdapter, Boolean.TRUE);
+                channel.writeObject(authenticationRequest);
+                AuthenticationResponse authenticationResponse = (AuthenticationResponse) channel.readObject();
+                logger.info(authenticationResponse.getServerMessage());
+                actor = authenticationResponse.getUser();
+                return authenticationResponse.allowed();
+            } catch (TransmissionException transmissionException) {
+                logger.error(transmissionException.getMessage());
+            }
+        }
+        return false;
+    }
+
+    private boolean register(CSChannel channel, String user, String credentials) {
+        if (channel != null) {
+            try {
+                GUIReaderAdapter guiReaderAdapter = new GUIReaderAdapter();
+                guiReaderAdapter.push(user);
+                guiReaderAdapter.push(credentials);
+                guiReaderAdapter.push(credentials);
+                AuthenticationRequest authenticationRequest = new Register().formRequest(guiReaderAdapter, Boolean.TRUE);
+                channel.writeObject(authenticationRequest);
+                AuthenticationResponse authenticationResponse = (AuthenticationResponse) channel.readObject();
+                logger.info(authenticationResponse.getServerMessage());
+                actor = authenticationResponse.getUser();
+                return authenticationResponse.allowed();
+            } catch (TransmissionException transmissionException) {
+                logger.error(transmissionException.getMessage());
+            }
+        }
+        return false;
     }
 
     @Override
@@ -184,15 +248,17 @@ public class LoginForm extends UIForm {
         switch (e.getActionCommand()) {
             case (ACTION_LOGIN): {
                 // Collect fields data and perform "login" command on the server
-                logger.info("Logging in user '{}' with password '{}'...", tfUser.getText(), tfPassword.getText());
+                logger.info("Logging in user '{}'...", tfUser.getText());
 
                 // Disable all controls on the form to avoid serial clicks
                 instance.setEnabled(false);
                 //
-                if (checkLogin(tfUser.getText(), tfPassword.getText())) {
+
+                if (checkLogin(channel, tfUser.getText(), tfPassword.getText())) {
                     // Success - clear form data, enable form controls, hide form and open main (Groups) window
                     hide();
-                    GroupsForm groupsForm = new GroupsForm(resourceBundle.getLocale());
+                    GroupsForm groupsForm = new GroupsForm(resourceBundle.getLocale(), channel);
+                    groupsForm.setActor(actor);
                     groupsForm.show();
                 } else {
                     // Fail - show error
@@ -214,8 +280,23 @@ public class LoginForm extends UIForm {
                             JOptionPane.ERROR_MESSAGE
                     );
                 } else {
-                    logger.info("Registering user '{}' with password '{}'...", tfRUser.getText(), tfRPassword.getText());
+                    logger.info("Registering user '{}'...", tfRUser.getText());
 
+                    if (register(channel, tfUser.getText(), tfPassword.getText())) {
+                        // Success - clear form data, enable form controls, hide form and open main (Groups) window
+                        hide();
+                        GroupsForm groupsForm = new GroupsForm(resourceBundle.getLocale(), channel);
+                        groupsForm.setActor(actor);
+                        groupsForm.show();
+                    } else {
+                        // Fail - show error
+                        JOptionPane.showMessageDialog(instance,
+                                resourceBundle.getString("form.login.error.incorrect.credentials"),
+                                resourceBundle.getString("form.login.error.title"),
+                                JOptionPane.ERROR_MESSAGE);
+                    }
+                    clearFields();
+                    instance.setEnabled(true);
                     // 1. Disable all controls on the form
                     // 2. Send "Registration" action to the server
                     // 3. Process server response
@@ -244,5 +325,4 @@ public class LoginForm extends UIForm {
         tfRPassword.setText(EMPTY_STRING);
         tfRPassword2.setText(EMPTY_STRING);
     }
-
 }

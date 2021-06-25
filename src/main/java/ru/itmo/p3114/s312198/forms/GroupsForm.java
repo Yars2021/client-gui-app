@@ -2,6 +2,15 @@ package ru.itmo.p3114.s312198.forms;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ru.itmo.p3114.s312198.commands.CommandRecord;
+import ru.itmo.p3114.s312198.commands.actions.AbstractCommand;
+import ru.itmo.p3114.s312198.commands.actions.simple.Info;
+import ru.itmo.p3114.s312198.commands.types.CommandTypes;
+import ru.itmo.p3114.s312198.exceptions.TransmissionException;
+import ru.itmo.p3114.s312198.transmission.CSChannel;
+import ru.itmo.p3114.s312198.transmission.PrimaryPack;
+import ru.itmo.p3114.s312198.transmission.ResponsePack;
+import ru.itmo.p3114.s312198.transmission.User;
 
 import javax.swing.*;
 import javax.swing.border.TitledBorder;
@@ -23,6 +32,9 @@ public class GroupsForm extends UIForm {
     public static final String ACTION_ADD_GROUP = "actionAddNewGroup";
     public static final String ACTION_DELETE_GROUPS = "actionDeleteGroups";
     public static final String ACTION_RELOAD = "actionReloadGroups";
+
+    private CSChannel channel;
+    private User actor;
 
     private ResourceBundle resourceBundle;
 
@@ -68,6 +80,28 @@ public class GroupsForm extends UIForm {
         prepareGUI(resourceBundle.getLocale());
     }
 
+    public GroupsForm(Locale locale, CSChannel channel) {
+        this.channel = channel;
+        resourceBundle = getResourceBundle(locale);
+        prepareGUI(resourceBundle.getLocale());
+    }
+
+    public User getActor() {
+        return actor;
+    }
+
+    public void setActor(User actor) {
+        this.actor = actor;
+    }
+
+    public CSChannel getChannel() {
+        return channel;
+    }
+
+    public void setChannel(CSChannel channel) {
+        this.channel = channel;
+    }
+
     private JPanel buildLanguagePanel() {
         HashMap<String, String> languages = new HashMap<>();
         languages.put("\u0420\u0443\u0441\u0441\u043a\u0438\u0439", "ru-RU");
@@ -92,6 +126,20 @@ public class GroupsForm extends UIForm {
             }
         });
         pLanguages.setBorder(tbLanguages);
+
+        String langName = "";
+        for (String lang: languages.keySet()) {
+            if (languages.get(lang).equals(resourceBundle.getLocale().toLanguageTag())) {
+                langName = lang;
+            }
+        }
+        for (int i = 0; i < cbLanguages.getItemCount(); i++) {
+            if (cbLanguages.getItemAt(i).equals(langName)) {
+                cbLanguages.setSelectedIndex(i);
+                break;
+            }
+        }
+
         return pLanguages;
     }
 
@@ -160,9 +208,9 @@ public class GroupsForm extends UIForm {
                 if (mouseEvent.getClickCount() == 2) {
                     JTable target = (JTable) mouseEvent.getSource();
                     int row = target.getSelectedRow();
-                    int column = target.getSelectedColumn();
                     try {
-                        editGroup(Long.parseLong((String) tGroups.getValueAt(row, 1)));
+                        Integer id = (Integer) tGroups.getValueAt(row, 1);
+                        editGroup(Long.valueOf(id));
                     } catch (NumberFormatException e) {
                         logger.error("Impossible to edit group {}...", e.getMessage());
                     }
@@ -206,7 +254,7 @@ public class GroupsForm extends UIForm {
 
         tbButtons.setTitle(resourceBundle.getString("form.groups.control.actions"));
         tbLanguages.setTitle(resourceBundle.getString("form.groups.control.lang"));
-        tmGroups.setDataVector(getTableData(), getLocalizedTableHeaders(locale));
+        tmGroups.setDataVector(retrieveGroupsFromServer(), getLocalizedTableHeaders(locale));
         instance.pack();
     }
 
@@ -226,56 +274,61 @@ public class GroupsForm extends UIForm {
         return header.toArray();
     }
 
+    private Object[][] transform(ArrayList<ArrayList<Object>> arrayLists) {
+        if (arrayLists == null || arrayLists.size() == 0) {
+            return null;
+        } else {
+            Object[][] arrays = new Object[arrayLists.size()][arrayLists.get(0).size()];
+            for (int i = 0; i < arrayLists.size(); i++) {
+                for (int j = 0; j < arrayLists.get(0).size(); j++) {
+                    arrays[i][j] = arrayLists.get(i).get(j);
+                }
+            }
+            return arrays;
+        }
+    }
+
     /**
      * Requests groups data from the server and returns it as a two-dimensional array
      *
      * @return Two-dimensional array with gruops data (each row is a group, each column is a field)
      */
     private Object[][] retrieveGroupsFromServer() {
-        Object[][] data = getTableData(); // todo replace with actual code to retrieve data from the server
-        return data;
-    }
+        ArrayList<ArrayList<Object>> data = new ArrayList<>();
+        if (channel != null && !channel.getSocket().isClosed()) {
+            try {
+                PrimaryPack primaryPack = new PrimaryPack(actor);
+                primaryPack.addCommand(new CommandRecord(new Info(), CommandTypes.SIMPLE_COMMAND));
+                channel.writeObject(primaryPack);
+                ResponsePack responsePack = (ResponsePack) channel.readObject();
+                for (int i = 5; i < responsePack.getOutput().size() - 1; i++) {
+                    ArrayList<Object> line = new ArrayList<>();
+                    String[] halves = responsePack.getOutput().get(i).split(": ");
+                    logger.info("Loading into the table: " + responsePack.getOutput().get(i));
+                    line.add(false);
+                    line.add(Integer.parseInt(halves[0].trim().split(", ")[0].trim()));
+                    line.add(halves[1].trim().split(",")[0].trim());
+                    line.add(halves[0].trim().split(", ")[2].trim());
+                    line.add("(" + halves[1].trim().split(",")[1].trim() + "; " +
+                            halves[1].trim().split(",")[2].trim() + ")");
+                    line.add(halves[1].trim().split(",")[3].trim());
+                    line.add(Integer.parseInt(halves[1].trim().split(",")[4].trim()));
+                    line.add(Integer.parseInt(halves[1].trim().split(",")[5].trim()));
+                    line.add(Integer.parseInt(halves[1].trim().split(",")[6].trim()));
+                    line.add(halves[1].trim().split(",")[7].trim());
+                    line.add(halves[1].trim().split(",")[8].trim().isEmpty() ? "-" : halves[1].trim().split(",")[8].trim());
 
-    // todo: remove when the method above is implemented
-    private Object[][] getTableData() {
-        logger.info("Retrieving data from the server");
-        Object[][] data = {
-                {false, 1, "1", "1", "1", "1", 1, 1, 1, "1", "Admin"},
-                {false, 2, "2", "2", "2", "2", 2, 2, 2, "2", "Admin"},
-                {false, 3, "2", "2", "2", "2", 2, 2, 2, "2", "Admin"},
-                {false, 4, "2", "2", "2", "2", 2, 2, 2, "2", "Admin"},
-                {false, 5, "2", "2", "2", "2", 2, 2, 2, "2", "Admin"},
-                {false, 6, "2", "2", "2", "2", 2, 2, 2, "2", "Admin"},
-                {false, 7, "2", "2", "2", "2", 2, 2, 2, "2", "Admin"},
-                {false, 8, "2", "2", "2", "2", 2, 2, 2, "2", "Admin"},
-                {false, 9, "2", "2", "2", "2", 2, 2, 2, "2", "Admin"},
-                {false, 10, "2", "2", "2", "2", 2, 2, 2, "2", "Admin"},
-                {false, 11, "2", "2", "2", "2", 2, 2, 2, "2", "Admin"},
-                {false, 12, "2", "2", "2", "2", 2, 2, 2, "2", "Admin"},
-                {false, 13, "2", "2", "2", "2", 2, 2, 2, "2", "Admin"},
-                {false, 14, "2", "2", "2", "2", 2, 2, 2, "2", "Admin"},
-                {false, 15, "2", "2", "2", "2", 2, 2, 2, "2", "Admin"},
-                {false, 16, "2", "2", "2", "2", 2, 2, 2, "2", "Admin"},
-                {false, 17, "2", "2", "2", "2", 2, 2, 2, "2", "Admin"},
-                {false, 18, "2", "2", "2", "2", 2, 2, 2, "2", "Admin"},
-                {false, 19, "2", "2", "2", "2", 2, 2, 2, "2", "Admin"},
-                {false, 20, "2", "2", "2", "2", 2, 2, 2, "2", "Admin"},
-                {false, 21, "2", "2", "2", "2", 2, 2, 2, "2", "Admin"},
-                {false, 22, "2", "2", "2", "2", 2, 2, 2, "2", "Admin"},
-                {false, 23, "2", "2", "2", "2", 2, 2, 2, "2", "Admin"},
-                {false, 24, "2", "2", "2", "2", 2, 2, 2, "2", "Admin"},
-                {false, 25, "2", "2", "2", "2", 2, 2, 2, "2", "Admin"},
-                {false, 26, "2", "2", "2", "2", 2, 2, 2, "2", "Admin"},
-                {false, 27, "2", "2", "2", "2", 2, 2, 2, "2", "Admin"},
-                {false, 28, "2", "2", "2", "2", 2, 2, 2, "2", "Admin"},
-                {false, 29, "2", "2", "2", "2", 2, 2, 2, "2", "Admin"},
-                {false, 30, "2", "2", "2", "2", 2, 2, 2, "2", "Admin"}
-        };
-        return data;
+                    data.add(line);
+                }
+            } catch (TransmissionException transmissionException) {
+                logger.error(transmissionException.getMessage());
+            }
+        }
+        return transform(data);
     }
 
     private void editGroup(Long id) {
-        GroupForm groupForm = new GroupForm(resourceBundle.getLocale());
+        GroupForm groupForm = new GroupForm(resourceBundle.getLocale(), channel);
         groupForm.loadById(id);
         groupForm.show();
     }
@@ -286,9 +339,12 @@ public class GroupsForm extends UIForm {
             case (ACTION_ADD_GROUP): {
                 logger.info("Adding a new group...");
                 // Show "Group" dialog with empty fields
-                GroupForm groupForm = new GroupForm(resourceBundle.getLocale());
+                GroupForm groupForm = new GroupForm(resourceBundle.getLocale(), channel);
                 groupForm.loadById(-1L);
+                groupForm.setActor(actor);
                 groupForm.show();
+
+                tmGroups.setDataVector(retrieveGroupsFromServer(), getLocalizedTableHeaders(resourceBundle.getLocale()));
 
                 break;
             }
@@ -324,6 +380,4 @@ public class GroupsForm extends UIForm {
         }
 
     }
-
-
 }
